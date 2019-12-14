@@ -1,4 +1,4 @@
-# Dumpd - Upload Coredumps
+# Cdumpd - Watch folder for Coredumps and upload them
 
 ## Dependencies
  * Curl
