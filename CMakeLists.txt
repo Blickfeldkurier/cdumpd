@@ -16,3 +16,9 @@ target_link_libraries(cdumpd
 	${CURL_LIBRARIES}
 	dl
 )
+
+INSTALL(TARGETS cdumpd DESTINATION local/bin)
+SET(CPACK_GENERATOR "DEB;TGZ")
+SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "Blickfeldkurier")
+
+INCLUDE(CPack)

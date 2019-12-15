@@ -14,21 +14,35 @@
 
 using namespace google_breakpad;
 
-bool UploadMinidump(std::string &path, std::string &url) {
-    std::map<string, string> parameters;
-    std::map<string, string> files;
-    files["upload_file_minidump"] = path;
-    return HTTPUpload::SendRequest(
-    url,
-    parameters,
-    files,
-    /* proxy */ "",
-    /* proxy password */ "",
-    /* certificate */ "",
-    /* response body */ nullptr,
-    /* response code */ nullptr,
-    /* error */ nullptr
-  );
+namespace {
+    bool uploadMinidump(std::string &path, std::string &url, std::string *error) {
+        std::map<string, string> parameters;
+        std::map<string, string> files;
+        files["upload_file_minidump"] = path;
+        return HTTPUpload::SendRequest(
+        url,
+        parameters,
+        files,
+        /* proxy */ "",
+        /* proxy password */ "",
+        /* certificate */ "",
+        /* response body */ nullptr,
+        /* response code */ nullptr,
+        error
+        );
+    }
+}
+
+void deleteFile(std::string &path, bool noError, std::string *errmsg, Log *log){
+    if(noError == false){
+        log->print("Could not upload " + path + ": " + *errmsg + "\n");
+        return;
+    }
+    int retval = remove(path.c_str());
+    if(retval != 0){
+        std::string failstr = std::string(strerror(errno));
+        log->print("Could not delete " + path + ":\n" + failstr);
+    }
 }
 
 void printHelp(){
@@ -89,8 +103,8 @@ int main(int argc, char *argv[]){
 		daemon(0,0);	
 	}
 	Log *log = new Log(isDebug);
-    log->print("Path to Inode: " + inotify_path + "\n");
-    log->print("Upload to: " + url + "\n");
+    log->print("Path to Inode: " + inotify_path + "\n", "");
+    log->print("Upload to: " + url + "\n", "");
 
     int ifd = inotify_init();
     if(ifd == -1){
@@ -121,16 +135,19 @@ int main(int argc, char *argv[]){
             if((event->mask & IN_CLOSE_WRITE) && (event->len > 0)){
                 std::string evname = std::string(event->name);
                 std::string path = inotify_path + "/" + evname;
-                log->print("File Write Closed: " + evname + "\n");
+                std::string *error = new std::string();
+                log->print("File Write Closed: " + evname + "\n", "");
                 if(contains.empty() == true){
-                    UploadMinidump(path, url);
+                    bool retval = uploadMinidump(path, url, error);
+                    deleteFile(path, retval, error, log);
                 }else{
                     if(contains.find(contains) != std::string::npos){
-                        UploadMinidump(path, url);
+                        bool retval = uploadMinidump(path, url, error);
+                        deleteFile(path, retval, error, log);
                     }
                 }
+                delete(error);
 			}
-
             /* Move to next struct */
             len -= sizeof(*event) + event->len;
             if (len > 0)
