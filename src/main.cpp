@@ -100,7 +100,7 @@ int main(int argc, char *argv[]){
         switch(opt){
 			case 'c':{//Pattern for filetest
 				contains = std::string(optarg);
-			}
+			}break;
 			case 'd':{//Flag for Debug mode
 				isDebug = true;
 			}break;
