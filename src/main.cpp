@@ -170,7 +170,8 @@ int main(int argc, char *argv[]){
 					bool retval = uploadMinidump(path, url, error);
                     deleteFile(path, retval, error, log);
                 }else{
-                    if(contains.find(evname) != std::string::npos){
+					log->print("Test for " + contains + " in " + evname , "");
+                    if(evname.find(contains) != std::string::npos){
                         bool retval = uploadMinidump(path, url, error);
                         deleteFile(path, retval, error, log);
                     }
