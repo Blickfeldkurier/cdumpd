@@ -167,10 +167,10 @@ int main(int argc, char *argv[]){
                 std::string *error = new std::string();
                 log->print("File Write Closed: " + evname + "\n", "");
                 if(contains.empty() == true){
-                    bool retval = uploadMinidump(path, url, error);
+					bool retval = uploadMinidump(path, url, error);
                     deleteFile(path, retval, error, log);
                 }else{
-                    if(contains.find(contains) != std::string::npos){
+                    if(contains.find(evname) != std::string::npos){
                         bool retval = uploadMinidump(path, url, error);
                         deleteFile(path, retval, error, log);
                     }
