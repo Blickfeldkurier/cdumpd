@@ -12,9 +12,13 @@ void Log::print(std::string debug_txt,
 				int level)
 {
 	if(debug == true){
-		std::cout << debug_txt << "\n";
+		if(debug_txt.empty() == false){
+			std::cout << debug_txt << "\n";
+		}
 	}else{
-		syslog(level, "%s",log_txt.c_str());
+		if(log_txt.empty() == false){
+			syslog(level, "%s",log_txt.c_str());
+		}
 	}
 }
 
