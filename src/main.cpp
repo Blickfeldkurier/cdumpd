@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <sys/inotify.h>
 
+#include "sentry_fields.h"
 #include "log.h"
 
 //http_upload is from the google_breakpad library.
@@ -28,9 +29,13 @@ namespace {
      * @param error Contains the error text
      * @return bool False on error
      **/
-    bool uploadMinidump(std::string &path, std::string &url, std::string *error) {
+    bool uploadMinidump(std::string &path, std::string &url, std::string *error, bool hasSentry, Log* log) {
         std::map<string, string> parameters;
         std::map<string, string> files;
+        if(hasSentry == true){
+            SentryFields fields(log);
+            files = fields.getParams();
+        }
         files["upload_file_minidump"] = path;
         return HTTPUpload::SendRequest(
         url,
@@ -73,6 +78,7 @@ void printHelp(){
     std::cout << "\t-d/--debug: Debug Mode - No daemonizing\n";
 	std::cout << "\t-h/--help: Print thist Help\n";
     std::cout << "\t-p/--path <path>: Path to coredump/mindump Folder\n";
+    std::cout << "\t-s/--sentry: Provide Sentry User/Device Fields in Upload\n";
     std::cout << "\t-u/--url <url>: Upload url (default: http://localhost:8080)\n";
 }
 
@@ -83,6 +89,7 @@ int main(int argc, char *argv[]){
 		{"debug", no_argument,0, 'd'},
         {"help", no_argument, 0, 'h' },
         {"path", required_argument, 0, 'p'},
+        {"sentry", no_argument, 0, 's'},
         {"url", required_argument, 0, 'u'},
         {0, 0, 0, 0}
     };
@@ -91,10 +98,11 @@ int main(int argc, char *argv[]){
     int opt = 0;
     int option_index = 0;
 	bool isDebug = false;
+    bool iCanHazSentryFields = false;
     std::string inotify_path = "./";
     std::string url = "http://localhost:8080";
 	std::string contains = "";
-    while ((opt = getopt_long(argc, argv,"c:dhp:u:", 
+    while ((opt = getopt_long(argc, argv,"c:dhp:su:", 
                    long_options, &option_index )) != -1) 
     {
         switch(opt){
@@ -110,6 +118,9 @@ int main(int argc, char *argv[]){
             }break;
             case 'p':{//Path to Folder we want to watch
                 inotify_path = std::string(optarg);
+            }break;
+            case 's':{
+                iCanHazSentryFields = true;
             }break;
             case 'u':{//Upload Url
                 url = std::string(optarg);
@@ -167,12 +178,12 @@ int main(int argc, char *argv[]){
                 std::string *error = new std::string();
                 log->print("File Write Closed: " + evname + "\n", "");
                 if(contains.empty() == true){
-					bool retval = uploadMinidump(path, url, error);
+					bool retval = uploadMinidump(path, url, error, iCanHazSentryFields, log);
                     deleteFile(path, retval, error, log);
                 }else{
 					log->print("Test for " + contains + " in " + evname , "");
                     if(evname.find(contains) != std::string::npos){
-                        bool retval = uploadMinidump(path, url, error);
+                        bool retval = uploadMinidump(path, url, error, iCanHazSentryFields, log);
                         deleteFile(path, retval, error, log);
                     }
                 }

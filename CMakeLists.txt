@@ -9,7 +9,7 @@ set(cdumpd_SRC
 	"src/main.cpp"
 	"src/log.cpp"
 	"src/http_upload.cc"
-	"src/using_std_string.h"
+	"src/sentry_fields.cpp"
 )
 add_executable(cdumpd ${cdumpd_SRC})
 target_link_libraries(cdumpd 
