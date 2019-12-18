@@ -62,7 +62,8 @@ bool HTTPUpload::SendRequest(const string &url,
                              const string &ca_certificate_file,
                              string *response_body,
                              long *response_code,
-                             string *error_description) {
+                             string *error_description,
+                             bool debug) {
   if (response_code != NULL)
     *response_code = 0;
 
@@ -113,6 +114,9 @@ bool HTTPUpload::SendRequest(const string &url,
   CURLcode err_code = CURLE_OK;
   CURLcode (*curl_easy_setopt)(CURL *, CURLoption, ...);
   *(void**) (&curl_easy_setopt) = dlsym(curl_lib, "curl_easy_setopt");
+  if(debug == true){
+    (*curl_easy_setopt)(curl, CURLOPT_VERBOSE, 1L);
+  }
   (*curl_easy_setopt)(curl, CURLOPT_URL, url.c_str());
   (*curl_easy_setopt)(curl, CURLOPT_USERAGENT, kUserAgent);
   // Support multithread by disabling timeout handling, would get SIGSEGV with
@@ -134,11 +138,12 @@ bool HTTPUpload::SendRequest(const string &url,
   CURLFORMcode (*curl_formadd)(struct curl_httppost **, struct curl_httppost **, ...);
   *(void**) (&curl_formadd) = dlsym(curl_lib, "curl_formadd");
   map<string, string>::const_iterator iter = parameters.begin();
-  for (; iter != parameters.end(); ++iter)
+  for (; iter != parameters.end(); ++iter){
     (*curl_formadd)(&formpost, &lastptr,
                  CURLFORM_COPYNAME, iter->first.c_str(),
                  CURLFORM_COPYCONTENTS, iter->second.c_str(),
                  CURLFORM_END);
+  }
 
   // Add form files.
   for (iter = files.begin(); iter != files.end(); ++iter) {

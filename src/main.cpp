@@ -29,25 +29,47 @@ namespace {
      * @param error Contains the error text
      * @return bool False on error
      **/
-    bool uploadMinidump(std::string &path, std::string &url, std::string *error, bool hasSentry, Log* log) {
+    bool uploadMinidump(std::string &path, std::string &url, 
+                        bool hasSentry, Log* log, bool debug) 
+    {
         std::map<string, string> parameters;
         std::map<string, string> files;
-        if(hasSentry == true){
-            SentryFields fields(log);
-            files = fields.getParams();
+        SentryFields *sentry = nullptr;
+        if(hasSentry){
+            sentry = new SentryFields(log);
+            parameters = sentry->getParams();
         }
+
+        map<string, string>::const_iterator iter = parameters.begin();
+        for (; iter != parameters.end(); ++iter){
+            std::cout << iter->first << " = " << iter->second << "\n";
+        }
+
+        long responce;
+        std::string body;
+        std::string lerror;
+
         files["upload_file_minidump"] = path;
-        return HTTPUpload::SendRequest(
+        bool succsess = HTTPUpload::SendRequest(
         url,
-        parameters,
+        parameters, 
         files,
         /* proxy */ "",
         /* proxy password */ "",
         /* certificate */ "",
-        /* response body */ nullptr,
-        /* response code */ nullptr,
-        error
+        /* response body */ &body,
+        /* response code */ &responce,
+        &lerror,
+        debug
         );
+        if(hasSentry){
+            delete(sentry);
+            sentry = nullptr;
+        }
+        if(succsess == false){
+            log->print("Error:\n\nCode: " + std::to_string(responce) + "\n\tBody:\n" + body + +"\n\terror:\n" + lerror );
+        }
+        return succsess;
     }
 }
 
@@ -58,9 +80,9 @@ namespace {
  * @param errmsg Error String from upload, might contain the reason for failure
  * @param log Pointer to the Log object we want to write the error messages to. 
  */ 
-void deleteFile(std::string &path, bool noError, std::string *errmsg, Log *log){
+void deleteFile(std::string &path, bool noError, Log *log){
     if(noError == false){
-        log->print("Could not upload " + path + ": " + *errmsg + "\n");
+        log->print("Could not upload " + path + "\n");
         return;
     }
     int retval = remove(path.c_str());
@@ -175,19 +197,17 @@ int main(int argc, char *argv[]){
             if((event->mask & IN_CLOSE_WRITE) && (event->len > 0)){
                 std::string evname = std::string(event->name);
                 std::string path = inotify_path + "/" + evname;
-                std::string *error = new std::string();
                 log->print("File Write Closed: " + evname + "\n", "");
                 if(contains.empty() == true){
-					bool retval = uploadMinidump(path, url, error, iCanHazSentryFields, log);
-                    deleteFile(path, retval, error, log);
+					bool retval = uploadMinidump(path, url, iCanHazSentryFields, log, isDebug);
+                    deleteFile(path, retval, log);
                 }else{
 					log->print("Test for " + contains + " in " + evname , "");
                     if(evname.find(contains) != std::string::npos){
-                        bool retval = uploadMinidump(path, url, error, iCanHazSentryFields, log);
-                        deleteFile(path, retval, error, log);
+                        bool retval = uploadMinidump(path, url, iCanHazSentryFields, log, isDebug);
+                        deleteFile(path, retval, log);
                     }
                 }
-                delete(error);
 			}
             //Move to next struct
             len -= sizeof(*event) + event->len;

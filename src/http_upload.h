@@ -66,7 +66,8 @@ class HTTPUpload {
                           const string &ca_certificate_file,
                           string *response_body,
                           long *response_code,
-                          string *error_description);
+                          string *error_description,
+                          bool debug = false);
 
  private:
   // Checks that the given list of parameters has only printable

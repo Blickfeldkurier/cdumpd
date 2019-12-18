@@ -3,12 +3,21 @@
 SentryFields::SentryFields(Log *log){
     this->log = log;
     this->getUname();
-    this->getIPAddress();
     this->getSysinfo();
 }
 
-void SentryFields::getIPAddress(){
+void SentryFields::getIPAddress(std::string hostname){
     this->hazIpAddr = false;
+    struct hostent *host_entry; 
+    host_entry = gethostbyname(hostname.c_str());
+    if(host_entry == nullptr){
+        log->print("Could not gethostbyname: " + std::string(strerror(errno)));
+        return;
+    }
+    this->ipAddress = std::string(inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0])));
+    if(this->ipAddress.empty() == false){
+        this->hazIpAddr = true;
+    }
 }
 
 void SentryFields::getSysinfo(){
@@ -34,20 +43,36 @@ void SentryFields::getUname(){
 std::map<std::string, std::string> SentryFields::getParams(){
     std::map<std::string, std::string> retMap;
     std::string sentry = "sentry";
-    if(this->hazIpAddr == true){
-        retMap.insert({sentry + "[\"user\"][\"ip_address\"]", this->ipAddress});
-    }
+    std::string contextString = "\"contexts\":{\"device\":{";
     if(this->hazSysinfo == true){
-        retMap.insert({sentry + "[\"contexts\"][\"device\"][\"memory_size\"]", std::to_string(this->sinfo.totalram)}); //in Bytes
-        retMap.insert({sentry + "[\"contexts\"][\"device\"][\"free_memory\"]", std::to_string(this->sinfo.freeram)}); //in Bytes
-        retMap.insert({sentry + "[\"contexts\"][\"device\"][\"boot_time\"]", ""});//In Utc - "2018-02-08T12:52:12Z" this->sinfo.uptime
-    } 
-    if(this->hazUname == true){
-        retMap.insert({sentry + "[\"contexts\"][\"device\"][\"name\"]", "\"" + std::string(this->ustruct.nodename) + "\"" }); //unmame -n nodename
-        retMap.insert({sentry + "[\"contexts\"][\"device\"][\"arch\"]", "\"" + std::string(this->ustruct.machine) + "\""}); // uname -m machine
-        retMap.insert({sentry + "[\"contexts\"][\"os\"][\"name\"]", "\"" + std::string(this->ustruct.sysname) + "\""}); //uanme -s sysname
-        retMap.insert({sentry + "[\"contexts\"][\"os\"][\"kernel_version\"]", "\"" + std::string(this->ustruct.release) + "\""}); //uname -r release
-        retMap.insert({sentry + "[\"contexts\"][\"os\"][\"version\"]", "\"" + std::string(this->ustruct.version) + "\""}); //uname version
+        std::time_t uptime = this->sinfo.uptime;
+        time_t base = time(0);
+        std::time_t delta_t = base - uptime;
+        std::string localtime = std::string(ctime(&delta_t));
+        localtime.erase(std::remove(localtime.begin(), localtime.end(), '\n'), localtime.end());
+        contextString = contextString + "\"memory_size\": " +  std::to_string(this->sinfo.totalram) + ", \"free_memory\": " + std::to_string(this->sinfo.freeram) +", \"boot_time\": \"" + localtime + "\"";
     }
+    if(this->hazUname == true){
+        if(this->hazSysinfo == true){
+            contextString = contextString + ",";
+        }
+        contextString = contextString + "\"name\": \"" + std::string(this->ustruct.nodename) + "\", \"arch\": \"" + std::string(this->ustruct.machine) + "\"" ;
+    }
+    contextString = contextString + "}"; //Closing for device Section
+    if(this->hazUname){
+        contextString = contextString + ",\"os\":{";
+        contextString = contextString + + "\"name\": \"" + std::string(this->ustruct.sysname) + "\"," ;
+        contextString = contextString + + "\"kernel_version\": \"" + std::string(this->ustruct.release)  + "\"," ;
+        contextString = contextString + + "\"version\": \"" + std::string(this->ustruct.version)  + "\"" ;
+        contextString = contextString + "}";
+    }
+    contextString = contextString + "}"; //Closing for contexts Section
+    std::string userString = "\"user\":{";
+    if(this->hazUname){
+        this->getIPAddress(std::string(this->ustruct.nodename));
+        userString = userString + "\"ip_address\":\"" + this->ipAddress + "\"";
+    }
+    userString = userString + "}";
+    retMap.insert({"sentry", "{" + contextString + "," + userString + "}"});
     return retMap;
 }
