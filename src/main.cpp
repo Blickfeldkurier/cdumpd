@@ -8,6 +8,9 @@
 #include <getopt.h>
 #include <errno.h>
 #include <sys/inotify.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 #include "sentry_fields.h"
 #include "log.h"
@@ -92,6 +95,58 @@ void deleteFile(std::string &path, bool noError, Log *log){
     }
 }
 
+/**
+ * Wrapper around Pattern Check, File Upload and deletion
+ */
+void fileProcessor(std::string dirpath, std::string filename, std::string contains, std::string url, 
+                   bool hazSentry, bool isDebug, Log *log)
+{
+    std::string path = dirpath + filename;
+    if(contains.empty() == true){
+		bool retval = uploadMinidump(path, url, hazSentry, log, isDebug);
+        deleteFile(path, retval, log);
+    }else{
+		log->print("Test for " + contains + " in " + filename , "");
+        if(filename.find(contains) != std::string::npos){
+        bool retval = uploadMinidump(path, url, hazSentry, log, isDebug);
+        deleteFile(path, retval, log);                }
+    }
+}
+
+/**
+ * Get all the filenames in INODE-Directory and check for leftovers
+ * If Found Upload them
+ */
+void startupCheck(std::string path, std::string url, std::string pattern, bool isSentry, bool isDebug, Log*log){
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir (path.c_str())) != nullptr) {
+        /* print all the files and directories within directory */
+        while ((ent = readdir (dir)) != nullptr) {
+            struct stat path_stat;
+            std::string filename = std::string(ent->d_name);
+            std::string filepath = path + "/" + filename;
+            if(stat(filepath.c_str(), &path_stat) < 0){
+                std::string failstr = std::string(strerror(errno));
+                log->print("Could not stat " + filepath + ":\n" + failstr);
+                continue;
+            }
+            if((path_stat.st_mode & S_IFMT) != S_IFREG){
+                continue;
+            }
+            if(filename.compare(".") == 0 || filename.compare("..") == 0){
+                continue;
+            }
+            fileProcessor(path, filename, pattern, url, isSentry, isDebug, log);
+        }
+        closedir (dir);
+    } else {
+        std::string failstr = std::string(strerror(errno));
+        log->print("Skipping Upload of old Files. Could not open Dir: " + path + ":\n" + failstr);
+    }
+
+}
+
 void printHelp(){
     std::cout << "Usage:\n";
     std::cout << "\t./cdumpd [options]\n";
@@ -165,6 +220,8 @@ int main(int argc, char *argv[]){
     log->print("Path to Inode: " + inotify_path + "\n", "");
     log->print("Upload to: " + url + "\n", "");
 
+
+
     //Setup Inotify
     int ifd = inotify_init();
     if(ifd == -1){
@@ -196,18 +253,8 @@ int main(int argc, char *argv[]){
         while(event != nullptr){
             if((event->mask & IN_CLOSE_WRITE) && (event->len > 0)){
                 std::string evname = std::string(event->name);
-                std::string path = inotify_path + "/" + evname;
                 log->print("File Write Closed: " + evname + "\n", "");
-                if(contains.empty() == true){
-					bool retval = uploadMinidump(path, url, iCanHazSentryFields, log, isDebug);
-                    deleteFile(path, retval, log);
-                }else{
-					log->print("Test for " + contains + " in " + evname , "");
-                    if(evname.find(contains) != std::string::npos){
-                        bool retval = uploadMinidump(path, url, iCanHazSentryFields, log, isDebug);
-                        deleteFile(path, retval, log);
-                    }
-                }
+                fileProcessor(inotify_path + "/" + evname, evname, contains, url, iCanHazSentryFields, isDebug, log);
 			}
             //Move to next struct
             len -= sizeof(*event) + event->len;
