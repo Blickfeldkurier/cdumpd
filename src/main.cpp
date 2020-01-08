@@ -154,6 +154,7 @@ void printHelp(){
 	std::cout << "\t-c/--contains <string>: Match filename agains string\n";
     std::cout << "\t-d/--debug: Debug Mode - No daemonizing\n";
 	std::cout << "\t-h/--help: Print thist Help\n";
+    std::cout << "\t-n/--no-cleanup: Do not send remaining Files on Programm start\n";
     std::cout << "\t-p/--path <path>: Path to coredump/mindump Folder\n";
     std::cout << "\t-s/--sentry: Provide Sentry User/Device Fields in Upload\n";
     std::cout << "\t-u/--url <url>: Upload url (default: http://localhost:8080)\n";
@@ -165,6 +166,7 @@ int main(int argc, char *argv[]){
 		{"contains", required_argument, 0, 'c'},
 		{"debug", no_argument,0, 'd'},
         {"help", no_argument, 0, 'h' },
+        {"no-cleanup", no_argument, 0, 'n'},
         {"path", required_argument, 0, 'p'},
         {"sentry", no_argument, 0, 's'},
         {"url", required_argument, 0, 'u'},
@@ -176,10 +178,11 @@ int main(int argc, char *argv[]){
     int option_index = 0;
 	bool isDebug = false;
     bool iCanHazSentryFields = false;
+    bool no_cleanup = false;
     std::string inotify_path = "./";
     std::string url = "http://localhost:8080";
 	std::string contains = "";
-    while ((opt = getopt_long(argc, argv,"c:dhp:su:", 
+    while ((opt = getopt_long(argc, argv,"c:dhnp:su:", 
                    long_options, &option_index )) != -1) 
     {
         switch(opt){
@@ -192,6 +195,9 @@ int main(int argc, char *argv[]){
             case 'h':{//Print help
                 printHelp();
                 exit(0);
+            }break;
+            case 'n':{
+                no_cleanup = true;
             }break;
             case 'p':{//Path to Folder we want to watch
                 inotify_path = std::string(optarg);
@@ -217,10 +223,12 @@ int main(int argc, char *argv[]){
         }
 	}
 	Log *log = new Log(isDebug);
-    log->print("Path to Inode: " + inotify_path + "\n", "");
-    log->print("Upload to: " + url + "\n", "");
+    log->print("Path to Inotify: " + inotify_path + "\n");
+    log->print("Upload to: " + url + "\n");
 
-
+    if(no_cleanup == false){
+        startupCheck(inotify_path, url, contains, iCanHazSentryFields, isDebug, log);
+    }
 
     //Setup Inotify
     int ifd = inotify_init();
