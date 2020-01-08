@@ -43,11 +43,6 @@ namespace {
             parameters = sentry->getParams();
         }
 
-        map<string, string>::const_iterator iter = parameters.begin();
-        for (; iter != parameters.end(); ++iter){
-            std::cout << iter->first << " = " << iter->second << "\n";
-        }
-
         long responce;
         std::string body;
         std::string lerror;
@@ -70,7 +65,15 @@ namespace {
             sentry = nullptr;
         }
         if(succsess == false){
-            log->print("Error:\n\nCode: " + std::to_string(responce) + "\n\tBody:\n" + body + +"\n\terror:\n" + lerror );
+            log->print("Could not Upload " + path + "to: " + url + "\n");
+            log->print("Error:\n\nCode: " + std::to_string(responce) + "\n\tBody:\n" + body + +"\n\terror:\n" + lerror + "\n" );
+            if(parameters.empty() == false){
+                map<string, string>::const_iterator iter = parameters.begin();
+                log->print("Parameters:\n");
+                for (; iter != parameters.end(); ++iter){
+                    log->print(iter->first + " = " + iter->second + "\n");
+                }
+            }
         }
         return succsess;
     }
