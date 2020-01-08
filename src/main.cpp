@@ -65,7 +65,7 @@ namespace {
             sentry = nullptr;
         }
         if(succsess == false){
-            log->print("Could not Upload " + path + "to: " + url + "\n");
+            log->print("Could not Upload " + path + " to: " + url + "\n");
             log->print("Error:\n\nCode: " + std::to_string(responce) + "\n\tBody:\n" + body + +"\n\terror:\n" + lerror + "\n" );
             if(parameters.empty() == false){
                 map<string, string>::const_iterator iter = parameters.begin();
@@ -140,7 +140,7 @@ void startupCheck(std::string path, std::string url, std::string pattern, bool i
             if(filename.compare(".") == 0 || filename.compare("..") == 0){
                 continue;
             }
-            fileProcessor(path, filename, pattern, url, isSentry, isDebug, log);
+            fileProcessor(path + "/", filename, pattern, url, isSentry, isDebug, log);
         }
         closedir (dir);
     } else {
