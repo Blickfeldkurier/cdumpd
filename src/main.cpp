@@ -265,7 +265,7 @@ int main(int argc, char *argv[]){
             if((event->mask & IN_CLOSE_WRITE) && (event->len > 0)){
                 std::string evname = std::string(event->name);
                 log->print("File Write Closed: " + evname + "\n", "");
-                fileProcessor(inotify_path + "/" + evname, evname, contains, url, iCanHazSentryFields, isDebug, log);
+                fileProcessor(inotify_path + "/", evname, contains, url, iCanHazSentryFields, isDebug, log);
 			}
             //Move to next struct
             len -= sizeof(*event) + event->len;
